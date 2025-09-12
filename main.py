@@ -1766,6 +1766,7 @@ from fastapi.responses import HTMLResponse
 #     return HTMLResponse(content=html_content)
 
 from datetime import datetime, timedelta
+from uuid import uuid4
 from dotenv import load_dotenv
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
