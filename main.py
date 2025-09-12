@@ -1764,6 +1764,10 @@ from fastapi.responses import HTMLResponse
 #     </html>
 #     """
 #     return HTMLResponse(content=html_content)
+
+
+from dotenv import load_dotenv
+load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 @app.get("/sso")
 def sso(token: str):
