@@ -1769,10 +1769,12 @@ from fastapi.responses import HTMLResponse
 from dotenv import load_dotenv
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = "HS256"
+
 @app.get("/sso")
 def sso(token: str):
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
@@ -1783,10 +1785,33 @@ def sso(token: str):
         user = db.query(Auth).filter(Auth.email == payload["email"]).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
-        
-        # tạo session cookie
-        response = RedirectResponse(url="/")  # trang tóm tắt
-        response.set_cookie(key="session_id", value=user.id, httponly=True)
+
+        # Tạo JWT giống login
+        login_payload = {
+            "id": str(user.id),
+            "email": user.email,
+            "exp": datetime.utcnow() + timedelta(hours=1)
+        }
+        login_token = jwt.encode(login_payload, SECRET_KEY, algorithm=ALGORITHM)
+        if isinstance(login_token, bytes):
+            login_token = login_token.decode("utf-8")
+
+        # Sinh session_id ngẫu nhiên (UUID)
+        session_id = str(uuid.uuid4())
+
+        response = RedirectResponse(url="/")  # redirect sang trang chính
+        response.set_cookie(
+            key="token",
+            value=login_token,
+            httponly=True,
+            samesite="lax",
+        )
+        response.set_cookie(
+            key="session_id",
+            value=session_id,
+            httponly=True,
+            samesite="lax",
+        )
         return response
     finally:
         db.close()
