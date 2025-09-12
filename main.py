@@ -1798,7 +1798,7 @@ def sso(token: str):
             login_token = login_token.decode("utf-8")
 
         # Sinh session_id ngẫu nhiên (UUID)
-        session_id = str(uuid.uuid4())
+        session_id = str(uuid4())
 
         response = RedirectResponse(url="/")  # redirect sang trang chính
         response.set_cookie(
