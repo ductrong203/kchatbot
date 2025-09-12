@@ -9,7 +9,7 @@ import sys
 import time
 import random
 from uuid import uuid4
-
+import jwt
 
 from contextlib import asynccontextmanager
 from urllib.parse import urlencode, parse_qs, urlparse
@@ -1750,21 +1750,42 @@ from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.responses import HTMLResponse
 
+# @app.get("/sso")
+# async def sso(token: str):
+#     html_content = f"""
+#     <html>
+#     <head>
+#         <script>
+#             localStorage.setItem('token', '{token}');
+#             window.location.href = '/';
+#         </script>
+#     </head>
+#     <body></body>
+#     </html>
+#     """
+#     return HTMLResponse(content=html_content)
+SECRET_KEY = os.getenv("SECRET_KEY")
 @app.get("/sso")
-async def sso(token: str):
-    html_content = f"""
-    <html>
-    <head>
-        <script>
-            localStorage.setItem('token', '{token}');
-            window.location.href = '/';
-        </script>
-    </head>
-    <body></body>
-    </html>
-    """
-    return HTMLResponse(content=html_content)
+def sso(token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
 
+    db: Session = SessionLocal()
+    try:
+        user = db.query(Auth).filter(Auth.email == payload["email"]).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # tạo session cookie
+        response = RedirectResponse(url="/")  # trang tóm tắt
+        response.set_cookie(key="session_id", value=user.id, httponly=True)
+        return response
+    finally:
+        db.close()
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
