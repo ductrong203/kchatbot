@@ -1771,7 +1771,6 @@ from dotenv import load_dotenv
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
-from sqlalchemy.orm import Session
 import time
 from open_webui.utils.misc import parse_duration
 from open_webui.utils.auth import (
@@ -1780,7 +1779,7 @@ from open_webui.utils.auth import (
 )
 @app.get("/sso")
 def sso(token: str, request: Request):
-    db: Session = SessionLocal()
+    db = SessionLocal()
     try:
         # Giải mã token SSO từ FE
         try:
