@@ -1779,31 +1779,51 @@ from open_webui.utils.auth import (
 )
 from open_webui.env import (
    WEBUI_AUTH_COOKIE_SAME_SITE,
+
+
             WEBUI_AUTH_COOKIE_SECURE
 )
 from open_webui.utils.access_control import get_permissions
 from open_webui.models.users import Users
 @app.get("/sso")
-def sso(token: str, request: Request):
+async def sso(token: str, request: Request):
     db = SessionLocal()
     try:
-        # Giải mã token
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user = Users.get_user_by_email(payload["email"].lower())
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
         expires_delta = parse_duration(request.app.state.config.JWT_EXPIRES_IN)
-        expires_at = int(time.time()) + int(expires_delta.total_seconds()) if expires_delta else None
-        datetime_expires_at = datetime.fromtimestamp(expires_at, timezone.utc) if expires_at else None
+        expires_at = None
+        if expires_delta:
+            expires_at = int(time.time()) + int(expires_delta.total_seconds())
 
-   
         login_token = create_token(
             data={"id": user.id},
             expires_delta=expires_delta,
         )
 
-        response = RedirectResponse(url="/", status_code=302)
+        datetime_expires_at = (
+            datetime.fromtimestamp(expires_at, timezone.utc)
+            if expires_at else None
+        )
+
+        # --- set cookie ---
+        response_html = f"""
+        <html>
+        <head>
+            <script>
+                // Fallback: lưu token vào localStorage nếu cookie không hoạt động
+                localStorage.setItem('token', '{login_token}');
+                // Redirect thẳng về trang chính
+                window.location.href = '/';
+            </script>
+        </head>
+        <body></body>
+        </html>
+        """
+        response = HTMLResponse(content=response_html)
         response.set_cookie(
             key="token",
             value=login_token,
@@ -1813,7 +1833,6 @@ def sso(token: str, request: Request):
             secure=WEBUI_AUTH_COOKIE_SECURE,
             path="/",
         )
-
         return response
 
     finally:
