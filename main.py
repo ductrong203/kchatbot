@@ -1803,7 +1803,7 @@ def sso(token: str, request: Request):
             expires_delta=expires_delta,
         )
 
-        response = RedirectResponse(url="/")
+        response = RedirectResponse(url="/", status_code=302)
         response.set_cookie(
             key="token",
             value=login_token,
