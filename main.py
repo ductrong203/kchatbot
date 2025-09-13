@@ -1808,7 +1808,7 @@ def sso(token: str, request: Request, response: Response):
             else None
         )
 
-        # Set cookie giống hệt /signin
+        response = RedirectResponse(url="/")
         response.set_cookie(
             key="token",
             value=login_token,
@@ -1816,13 +1816,14 @@ def sso(token: str, request: Request, response: Response):
             httponly=True,
             samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
             secure=WEBUI_AUTH_COOKIE_SECURE,
+            path="/",
         )
 
         user_permissions = get_permissions(
             user.id, request.app.state.config.USER_PERMISSIONS
         )
 
-        # Trả JSON giống /signin
+      
         return {
             "token": login_token,
             "token_type": "Bearer",
