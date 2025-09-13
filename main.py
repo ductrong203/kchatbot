@@ -1775,6 +1775,7 @@ ALGORITHM = "HS256"
 @app.get("/sso")
 def sso(token: str):
     try:
+        # Decode token nhận từ FE
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
@@ -1783,6 +1784,7 @@ def sso(token: str):
 
     db: Session = SessionLocal()
     try:
+        # Lấy user theo email
         user = db.query(Auth).filter(Auth.email == payload["email"]).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
@@ -1797,21 +1799,24 @@ def sso(token: str):
         if isinstance(login_token, bytes):
             login_token = login_token.decode("utf-8")
 
-        # Sinh session_id ngẫu nhiên (UUID)
-        session_id = str(uuid4())
+        # Sinh session_id ngẫu nhiên
+        session_id = str(uuid.uuid4())
 
-        response = RedirectResponse(url="/")  # redirect sang trang chính
+        # Tạo response redirect thẳng trang chính
+        response = RedirectResponse(url="/")  # trang chính
         response.set_cookie(
             key="token",
             value=login_token,
             httponly=True,
             samesite="lax",
+            path="/"
         )
         response.set_cookie(
             key="session_id",
             value=session_id,
             httponly=True,
             samesite="lax",
+            path="/"
         )
         return response
     finally:
