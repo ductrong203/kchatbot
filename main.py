@@ -1800,7 +1800,7 @@ def sso(token: str):
             login_token = login_token.decode("utf-8")
 
         # Sinh session_id ngẫu nhiên
-        session_id = str(uuid.uuid4())
+        session_id = str(uuid4())
 
         # Tạo response redirect thẳng trang chính
         response = RedirectResponse(url="/")  # trang chính
