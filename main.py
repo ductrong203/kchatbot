@@ -1778,8 +1778,8 @@ from open_webui.utils.auth import (
     create_token,
 )
 from open_webui.env import (
-    WEBUI_AUTH_COOKIE_SAME_SITE,
-    WEBUI_AUTH_COOKIE_SECURE,
+    WEBUI_SESSION_COOKIE_SAME_SITE,
+    WEBUI_SESSION_COOKIE_SECURE,
 )
 @app.get("/sso")
 def sso(token: str, request: Request):
@@ -1822,8 +1822,8 @@ def sso(token: str, request: Request):
             value=login_token,
             expires=datetime_expires_at,
             httponly=True,
-            samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
-            secure=WEBUI_AUTH_COOKIE_SECURE,
+            samesite= WEBUI_SESSION_COOKIE_SAME_SITE,
+            secure=WEBUI_SESSION_COOKIE_SECURE,
             path="/",
         )
 
