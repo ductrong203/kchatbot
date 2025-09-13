@@ -1816,7 +1816,7 @@ def sso(token: str, request: Request):
         )
 
         # Set cookie giống login gốc
-        response = RedirectResponse(url="/")  # redirect thẳng trang chính
+        response = RedirectResponse(url="/", status_code=302)  # redirect thẳng trang chính
         response.set_cookie(
             key="token",
             value=login_token,
