@@ -1782,12 +1782,13 @@ from open_webui.env import (
             WEBUI_AUTH_COOKIE_SECURE
 )
 from open_webui.utils.access_control import get_permissions
+from open_webui.models.users import Users
 @app.get("/sso")
 def sso(token: str, request: Request, response: Response):
     db = SessionLocal()
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user = db.query(Auth).filter(Auth.email == payload["email"]).first()
+        user = Users.get_user_by_email(payload["email"].lower())
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
