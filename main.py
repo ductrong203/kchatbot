@@ -1765,59 +1765,65 @@ from fastapi.responses import HTMLResponse
 #     """
 #     return HTMLResponse(content=html_content)
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,timezone
 from uuid import uuid4
 from dotenv import load_dotenv
 load_dotenv()
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
-
+from sqlalchemy.orm import Session
+import time
+from open_webui.utils.misc import parse_duration
+from open_webui.utils.auth import (
+    decode_token,
+    create_token,
+)
 @app.get("/sso")
-def sso(token: str):
-    try:
-        # Decode token nhận từ FE
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
+def sso(token: str, request: Request):
     db: Session = SessionLocal()
     try:
+        # Giải mã token SSO từ FE
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token expired")
+        except jwt.InvalidTokenError:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
         # Lấy user theo email
         user = db.query(Auth).filter(Auth.email == payload["email"]).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Tạo JWT giống login
-        login_payload = {
-            "id": str(user.id),
-            "email": user.email,
-            "exp": datetime.utcnow() + timedelta(hours=1)
-        }
-        login_token = jwt.encode(login_payload, SECRET_KEY, algorithm=ALGORITHM)
-        if isinstance(login_token, bytes):
-            login_token = login_token.decode("utf-8")
+        # Tạo token giống login gốc
+        expires_delta = parse_duration(request.app.state.config.JWT_EXPIRES_IN)
+        expires_at = None
+        if expires_delta:
+            expires_at = int(time.time()) + int(expires_delta.total_seconds())
 
-        # Sinh session_id ngẫu nhiên
-        session_id = str(uuid4())
+        login_token = create_token(
+            data={"id": user.id},
+            expires_delta=expires_delta
+        )
 
-        # Tạo response redirect thẳng trang chính
-        response = RedirectResponse(url="/")  # trang chính
+        datetime_expires_at = (
+            datetime.fromtimestamp(expires_at, timezone.utc)
+            if expires_at
+            else None
+        )
+
+        # Set cookie giống login gốc
+        response = RedirectResponse(url="/")  # redirect thẳng trang chính
         response.set_cookie(
             key="token",
             value=login_token,
+            expires=datetime_expires_at,
             httponly=True,
-            samesite="lax",
-            path="/"
+            samesite=request.app.state.config.WEBUI_AUTH_COOKIE_SAME_SITE,
+            secure=request.app.state.config.WEBUI_AUTH_COOKIE_SECURE,
+            path="/",
         )
-        response.set_cookie(
-            key="session_id",
-            value=session_id,
-            httponly=True,
-            samesite="lax",
-            path="/"
-        )
+
         return response
     finally:
         db.close()
