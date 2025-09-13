@@ -1778,27 +1778,19 @@ from open_webui.utils.auth import (
     create_token,
 )
 from open_webui.env import (
-    WEBUI_SESSION_COOKIE_SAME_SITE,
-    WEBUI_SESSION_COOKIE_SECURE,
+   WEBUI_AUTH_COOKIE_SAME_SITE,
+            WEBUI_AUTH_COOKIE_SECURE
 )
+from open_webui.utils.access_control import get_permissions
 @app.get("/sso")
-def sso(token: str, request: Request):
+def sso(token: str, request: Request, response: Response):
     db = SessionLocal()
     try:
-        # Giải mã token SSO từ FE
-        try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        except jwt.ExpiredSignatureError:
-            raise HTTPException(status_code=401, detail="Token expired")
-        except jwt.InvalidTokenError:
-            raise HTTPException(status_code=401, detail="Invalid token")
-
-        # Lấy user theo email
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user = db.query(Auth).filter(Auth.email == payload["email"]).first()
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Tạo token giống login gốc
         expires_delta = parse_duration(request.app.state.config.JWT_EXPIRES_IN)
         expires_at = None
         if expires_delta:
@@ -1806,7 +1798,7 @@ def sso(token: str, request: Request):
 
         login_token = create_token(
             data={"id": user.id},
-            expires_delta=expires_delta
+            expires_delta=expires_delta,
         )
 
         datetime_expires_at = (
@@ -1815,19 +1807,33 @@ def sso(token: str, request: Request):
             else None
         )
 
-        # Set cookie giống login gốc
-        response = RedirectResponse(url="/", status_code=302)  # redirect thẳng trang chính
+        # Set cookie giống hệt /signin
         response.set_cookie(
             key="token",
             value=login_token,
             expires=datetime_expires_at,
             httponly=True,
-            samesite= WEBUI_SESSION_COOKIE_SAME_SITE,
-            secure=WEBUI_SESSION_COOKIE_SECURE,
-            path="/",
+            samesite=WEBUI_AUTH_COOKIE_SAME_SITE,
+            secure=WEBUI_AUTH_COOKIE_SECURE,
         )
 
-        return response
+        user_permissions = get_permissions(
+            user.id, request.app.state.config.USER_PERMISSIONS
+        )
+
+        # Trả JSON giống /signin
+        return {
+            "token": login_token,
+            "token_type": "Bearer",
+            "expires_at": expires_at,
+            "id": user.id,
+            "email": user.email,
+            "name": user.name,
+            "role": user.role,
+            "profile_image_url": user.profile_image_url,
+            "permissions": user_permissions,
+        }
+
     finally:
         db.close()
 from sqlalchemy import create_engine, Column, Integer, String
