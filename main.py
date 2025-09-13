@@ -1784,28 +1784,23 @@ from open_webui.env import (
 from open_webui.utils.access_control import get_permissions
 from open_webui.models.users import Users
 @app.get("/sso")
-def sso(token: str, request: Request, response: Response):
+def sso(token: str, request: Request):
     db = SessionLocal()
     try:
+        # Giải mã token
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user = Users.get_user_by_email(payload["email"].lower())
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
         expires_delta = parse_duration(request.app.state.config.JWT_EXPIRES_IN)
-        expires_at = None
-        if expires_delta:
-            expires_at = int(time.time()) + int(expires_delta.total_seconds())
+        expires_at = int(time.time()) + int(expires_delta.total_seconds()) if expires_delta else None
+        datetime_expires_at = datetime.fromtimestamp(expires_at, timezone.utc) if expires_at else None
 
+   
         login_token = create_token(
             data={"id": user.id},
             expires_delta=expires_delta,
-        )
-
-        datetime_expires_at = (
-            datetime.fromtimestamp(expires_at, timezone.utc)
-            if expires_at
-            else None
         )
 
         response = RedirectResponse(url="/")
@@ -1819,25 +1814,11 @@ def sso(token: str, request: Request, response: Response):
             path="/",
         )
 
-        user_permissions = get_permissions(
-            user.id, request.app.state.config.USER_PERMISSIONS
-        )
-
-      
-        return {
-            "token": login_token,
-            "token_type": "Bearer",
-            "expires_at": expires_at,
-            "id": user.id,
-            "email": user.email,
-            "name": user.name,
-            "role": user.role,
-            "profile_image_url": user.profile_image_url,
-            "permissions": user_permissions,
-        }
+        return response
 
     finally:
         db.close()
+
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
